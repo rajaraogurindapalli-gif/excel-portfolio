@@ -1,135 +1,166 @@
-# CMAPSS Engine Health — Questions to Answer
+# CMAPSS Engine Health — Final Questions
 
-Dataset: NASA C-MAPSS turbofan degradation (`https://data.nasa.gov/docs/legacy/CMAPSSData.zip`).
-Citation: Saxena, Goebel, Simon, Eklund, PHM08 (2008).
+**Owner lens:** 18 years HAL (aero engines, airworthiness, module shop) and ONGC (rotating equipment, reliability, shutdown planning).
 
-Scope for v1: **FD001** (100 train / 100 test engines, 1 operating condition, HPC degradation). FD002–FD004 stay in the model as comparison slices.
+**Data:** NASA C-MAPSS turbofan run-to-failure (`CMAPSSData.zip`).  
+**v1 fleet:** FD001 (sea level, HPC degradation, 100 train / 100 test).  
+**v2 fleets:** FD002–FD004 (multi-regime and HPC+fan).
 
-These questions drive three deliverables:
+These are not academic EDA prompts. Each question ends in a decision a Chief Engineer / Reliability Manager would sign.
 
-1. **Dashboard** — visual answers an MRO / fleet engineer can scan in 30 seconds.
-2. **VBA automation** — buttons and macros that recompute answers after a new NASA file drop.
-3. **NL agent** — the same questions, asked in plain English against the workbook.
+Decision language used throughout:
 
----
-
-## A. Fleet snapshot (executive)
-
-1. How many engines are in the training fleet vs the test fleet for each FD set?
-2. What is the total number of recorded operational cycles?
-3. What is the shortest, median, and longest run-to-failure life in training (FD001 train lives: 128 / 199 / 362 cycles)?
-4. How many test engines have true RUL below 30 / 50 / 100 cycles (critical / watch / healthy bands)?
-5. What share of the test fleet is already inside a maintenance window (RUL ≤ 50)?
-6. Which 10 engines should be pulled first this week, ranked by lowest RUL then steepest recent sensor drift?
-7. How does FD001 life distribution compare with FD002, FD003, and FD004?
-8. Does the two-fault fleet (FD003/FD004) fail earlier or later than the HPC-only fleet?
-
-## B. Data quality and readiness
-
-9. Are all 26 columns present and numeric after import?
-10. Which sensors are constant in FD001 and should be dropped from KPIs (`s1, s5, s10, s16, s18, s19`, plus `os3`)?
-11. How many missing, duplicate, or out-of-order (unit, cycle) rows exist?
-12. Do cycle numbers start at 1 and increase by 1 for every unit?
-13. Are unit IDs unique across train vs test, or do they collide and need a `split` flag?
-14. What is the noise level (std / IQR) of each useful sensor in the first 30 healthy cycles?
-15. After a new zip drop, did row counts match the official spec (FD001 train 20,631 rows, test 13,096 rows)?
-
-## C. Degradation and sensors
-
-16. Which sensors show a clear trend as an engine approaches failure?
-17. For a given engine, when does the first persistent deviation from its own healthy baseline appear?
-18. What is a simple health index (0–100) from the most informative sensors (`s2, s3, s4, s7, s11, s12, s15, s17, s20, s21` and core-speed family `s8, s9, s13, s14`)?
-19. How many cycles before failure does the health index typically cross 70 / 50 / 30?
-20. Are high-life engines (life > 250) degrading on the same sensors as short-life engines (life < 150)?
-21. Which sensor pairs move together (collinearity), so the dashboard does not plot redundant gauges?
-22. Does HPC-related temperature / pressure (`T30/T50`, `P30`, `Ps30`) degrade earlier than fan-related speed sensors in FD003 vs FD001?
-
-## D. Remaining useful life
-
-23. For each training engine, what is RUL at every cycle (`max_cycle - cycle`)?
-24. For each test engine, what is RUL at the last observed cycle (from `RUL_FDxxx.txt`)?
-25. What is the fleet mean / median / P10 RUL on the latest test snapshot?
-26. If we cap RUL at 125 cycles (common CMAPSS piecewise target), how do rankings change?
-27. Using only last-cycle sensor values, which linear or rule-based score ranks test engines closest to true RUL?
-28. What is the absolute error of that baseline vs true RUL (MAE, and % of engines within 10 / 20 cycles)?
-29. Which engines are false-safe (model says healthy, true RUL < 30) — the dangerous misses?
-30. Which engines are false-alarm (model says critical, true RUL > 100) — wasted shop visits?
-
-## E. Operating conditions and fault modes
-
-31. How many distinct operating-condition clusters exist in FD002 / FD004 from (`os1, os2, os3`)?
-32. Do sensor means shift more because of condition than because of degradation?
-33. After conditioning on operating setting, does the health index still trend toward failure?
-34. Is six-condition data (FD002/FD004) too noisy for the same KPI thresholds used on FD001?
-35. Can the dashboard tell HPC-only failure (FD001/FD002) from HPC+fan failure (FD003/FD004) from late-life sensor shape?
-
-## F. Maintenance and operations (the “so what”)
-
-36. If shop capacity is 8 engines per week, which engines go this week vs next week vs monitor?
-37. What is the estimated cycles-to-shop for the current critical list?
-38. If we wait 20 more cycles on the watch list, how many engines are predicted to enter RUL ≤ 30?
-39. Which engines have unusual early wear (short life despite starting in the same condition)?
-40. What single-page brief would a maintenance planner send at 06:00: count by risk band, top 10 list, and sensors that moved overnight?
-
-## G. Dashboard design questions (what each tile must answer)
-
-41. **KPI row:** engines monitored, cycles logged, median life, engines with RUL ≤ 50, worst RUL.
-42. **Risk donut:** healthy / watch / critical counts.
-43. **Life histogram:** training time-to-failure distribution.
-44. **RUL bar:** test engines sorted by true or estimated RUL, colored by band.
-45. **Sensor small-multiples:** selected engine vs fleet healthy band over cycles.
-46. **Health sparkline:** health index for the engine picked on the slicer.
-47. **Leaderboard:** top 10 at-risk units with last cycle, RUL, health index, primary drifting sensor.
-48. **Set comparison:** FD001 vs FD003 median life and late-life sensor slope.
-
-## H. VBA automation questions (macros must answer by doing)
-
-49. Can one button ingest `train_FDxxx.txt`, `test_FDxxx.txt`, and `RUL_FDxxx.txt` and land them on named sheets?
-50. Can import assign official column names (unit, cycle, os1–os3, s1–s21) instead of blank headers?
-51. Can a Clean Data macro drop constant sensors, add `split`, `max_cycle`, `RUL`, `risk_band`?
-52. Can Refresh Dashboard rebuild pivots, charts, and the top-10 range without manual clicks?
-53. Can Flag Critical write engines with RUL ≤ 30 to a `Alerts` sheet and color the leaderboard?
-54. Can Export Brief save a timestamped PDF/CSV of the planner page?
-55. Can Validate Import check row counts against the spec and write a pass/fail log for CI-style review?
-56. Can Switch Fleet (FD001–FD004) reload the active set and refresh every dependent range?
-
-## I. Natural-language agent questions (exact prompts the agent must handle)
-
-These are the queries the agent should parse and answer from the workbook.
-
-### Status
-57. "How many engines are critical right now?"
-58. "Show the 10 engines with the lowest remaining life."
-59. "What is the RUL of engine 34 in FD001 test?"
-60. "Is engine 17 safe to fly another 40 cycles?"
-61. "Which engines entered the watch band since the last import?"
-
-### Sensors and health
-62. "Which sensor is drifting fastest on engine 5?"
-63. "Plot health index for engine 81."
-64. "Compare s4 and s11 on the last 30 cycles of engine 20 vs the fleet healthy baseline."
-65. "List sensors that do not change in FD001."
-66. "What was engine 50's health index at cycle 100?"
-
-### Fleet and comparison
-67. "What is median time-to-failure in training?"
-68. "Which training engine lived the longest?"
-69. "Compare FD001 and FD003 median lives."
-70. "How many test engines have RUL under 20 cycles?"
-71. "Summarize the fleet in three sentences."
-
-### Planning
-72. "If we can shop only 5 engines, which five?"
-73. "Give me a morning brief for the maintenance planner."
-74. "Which engines look false-safe?"
-75. "Explain why engine 8 is flagged."
+| Band | Meaning on this project | HAL analogue | ONGC analogue |
+|---|---|---|---|
+| Continue | RUL > 100 cycles | Clear for next flying programme | Run to next planned window |
+| Restrict / Watch | 31–100 | Monitor, limit role, plan bay | Condition-based watch, avoid unplanned trip |
+| Withdraw | RUL ≤ 30 | Ground / raise shop-visit demand | Isolate / advance shutdown |
 
 ---
 
-## Priority for build order
+## 0. Questions this workbook exists to answer
 
-**Must answer in the first dashboard (FD001):** 1–6, 10, 16, 18, 23–26, 36, 40–47, 49–55, 57–60, 67, 70, 72–73, 75.
+Q0.1 Which assets are no longer fit to continue, and on what evidence?
+Q0.2 If the bay / workshop can take only *N* units this week, which *N* go first?
+Q0.3 Is the indication a real HPC-path degradation, or noise / regime shift / bad import?
+Q0.4 What brief does the duty engineer send at 06:00 without opening twenty sheets?
 
-**Second pass (multi-fleet + better model):** 7–8, 22, 27–35, 61–66, 68–69, 74.
+If a chart or macro does not help Q0.1–Q0.4, it does not ship in v1.
 
-**Agent contract:** every NL question maps to a named Excel range or a VBA procedure. If the agent cannot resolve the entity (engine id, FD set, sensor), it asks one clarifying question instead of guessing.
+---
+
+## 1. Continue / restrict / withdraw  (airworthiness + production)
+
+Q1.1 For each test engine at last recorded cycle, is the call **Continue**, **Watch**, or **Withdraw**?
+Q1.2 How many engines are in each band right now?
+Q1.3 Which engines have RUL ≤ 30 (Withdraw) and must be listed on the alert sheet today?
+Q1.4 Engine *X* is asked to do 40 more cycles. Is that inside remaining life with margin, or is it a no-go?
+Q1.5 Which engines look healthy on the score but have true RUL < 30 (**false-safe** — the airworthiness miss)?
+Q1.6 Which engines look critical but have true RUL > 100 (**false-alarm** — wasted bay time / deferred production)?
+Q1.7 For engine *X*, write one sentence a certifying review would accept: *why* it is flagged (sensor, slope, RUL, band).
+
+HAL reading: dispatch vs ground.  
+ONGC reading: keep online vs advance outage.
+
+---
+
+## 2. Shop visit / shutdown planning
+
+Q2.1 Rank the fleet for the next shop / shutdown window: lowest RUL, then steepest 20-cycle health drop.
+Q2.2 If bay capacity is 5 this week and 8 next week, who is This Week / Next Week / Monitor?
+Q2.3 If Watch engines run another 20 cycles, how many will cross into Withdraw?
+Q2.4 What is cycles-to-bay for the current Withdraw list?
+Q2.5 Which training engines were short-life (< 150 cycles) despite the same sea-level condition — early-wear / build variation cases?
+Q2.6 Does capping RUL at 125 cycles (piecewise life, ignore very healthy tail) change the bay queue?
+
+HAL reading: engine-change and module-bay loading.  
+ONGC reading: platform shutdown slot and workshop loading.
+
+---
+
+## 3. What is failing  (module / path)
+
+Q3.1 Which sensors actually move as HPC degradation grows on FD001, and which are dead (constant) and must not be shown as gauges?
+Q3.2 For engine *X*, which one sensor has the fastest drift over the last 30 cycles versus its own first-30-cycle baseline?
+Q3.3 Build one Health Index 0–100 from the live sensors. When does the fleet typically cross 70 / 50 / 30 before failure?
+Q3.4 Do short-life and long-life engines degrade on the same sensors, or are there two wear signatures?
+Q3.5 On FD003 (HPC + fan), does the HPC temperature/pressure path move earlier than fan-speed path? Can the dashboard tell the fault family?
+Q3.6 Which sensor pairs are collinear so we do not put two gauges on the same physical effect?
+
+HAL reading: fan / LPC / HPC / HPT / LPT path, not anonymous `s4`.  
+ONGC reading: gas-generator path vs power-turbine / compressor path.
+
+Sensor names used on the dashboard (not only s-numbers):
+
+- T24, T30, T50 — temperatures  
+- P15, P30, Ps30 — pressures  
+- Nf, Nc, NRf, NRc — speeds  
+- phi, BPR, W31, W32 — flow / bleed  
+- Dead on FD001 and hidden: T2, P2, epr, farB, Nf_dmd, PCNfR_dmd, os3
+
+---
+
+## 4. Trust the data before you trust the call
+
+Q4.1 Did import land 26 numeric columns with official names, and do row counts match NASA spec (FD001 train 20,631 / test 13,096)?
+Q4.2 Are cycles complete and monotonic per engine (start at 1, step +1, no duplicates)?
+Q4.3 Train and test both use unit 1…100. Is every row stamped Train/Test so we never mix them in a pivot?
+Q4.4 What is the healthy-band noise (first 30 cycles) so a later deviation is judged against real scatter, not a single point?
+Q4.5 On FD002/FD004, do operating settings move the sensors more than damage does? If yes, raw thresholds from FD001 are not airworthy on those fleets.
+
+No dashboard number is published until Q4.1–Q4.3 are green.
+
+---
+
+## 5. Fleet picture  (one screen)
+
+Q5.1 How many engines and cycles are under watch in the active FD set?
+Q5.2 What is min / median / max run-to-failure life in training? (FD001: 128 / 199 / 362.)
+Q5.3 What is P10 / median / mean remaining life on the test snapshot?
+Q5.4 How do FD001 vs FD003 median lives and late-life slopes differ (one fault vs two)?
+Q5.5 What is the single-page 06:00 brief: band counts, top 10, worst RUL, dominant drifting sensor, import status?
+
+---
+
+## 6. What the three tools must answer
+
+### Dashboard tiles (v1)
+
+Each tile maps to one final question.
+
+| Tile | Answers |
+|---|---|
+| Band KPIs | Q1.2, Q5.1, Q5.3 |
+| Withdraw / Watch / Continue donut | Q1.1, Q1.2 |
+| Bay queue (top 10) | Q2.1, Q2.2 |
+| Life histogram (training) | Q5.2, Q2.5 |
+| Selected-engine health + sensors | Q1.4, Q1.7, Q3.2, Q3.3 |
+| Import / data-trust strip | Q4.1–Q4.3 |
+
+### VBA (the engineer does not re-type NASA files)
+
+Q6.1 One button imports train, test, and RUL text files onto named sheets with official headers.
+Q6.2 One button builds `RUL`, `health_index`, `risk_band`, `split`, and drops dead sensors.
+Q6.3 One button refreshes pivots, queue, colours, and alerts.
+Q6.4 One button exports the 06:00 brief (PDF + CSV) with timestamp.
+Q6.5 Validate Import writes pass/fail against NASA row counts before any KPI is shown.
+Q6.6 (v2) Switch Fleet FD001–FD004 and rebuild.
+
+### NL agent  — frozen prompt list
+
+The agent answers only these. Anything else gets one clarifying question.
+
+1. How many engines are Withdraw / Watch / Continue right now?
+2. Show the bay queue for this week. Capacity is *N*.
+3. What is the remaining life of engine *X* in FD001 test?
+4. Can engine *X* do *C* more cycles?
+5. Why is engine *X* flagged?
+6. Which sensor is drifting on engine *X*?
+7. What is the health index of engine *X* at cycle *C*?
+8. Which engines are false-safe?
+9. What is median time-to-failure on the training fleet?
+10. Give me the 06:00 brief.
+11. Compare FD001 and FD003 median life.
+12. Did the last import pass validation?
+
+---
+
+## 7. Out of scope for v1  (parked, not deleted)
+
+- Deep learning RUL models  
+- FD002/FD004 as the primary dashboard  
+- Cost / AOG / production-deferment money model  
+- Mapping CMAPSS sensors 1:1 onto a specific HAL engine type or ONGC GT frame  
+- Automatic airworthiness release  — this tool supports the engineer; it does not replace the stamp
+
+---
+
+## 8. Acceptance
+
+v1 is done when:
+
+1. Q1.1–Q1.7 and Q2.1–Q2.4 have numbers on the dashboard.  
+2. Q4.1–Q4.3 are a visible green/red strip.  
+3. VBA Q6.1–Q6.5 run from buttons.  
+4. Agent prompts 1–6 and 10 return the same numbers as the tiles.  
+5. A HAL/ONGC colleague can use the workbook without reading this file.
