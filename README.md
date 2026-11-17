@@ -1,8 +1,17 @@
-# Excel Portfolio
+# Excel Analytics Portfolio
 
-Professional Excel analytics projects by **RR** (Hyderabad).
+**Description**  
+Professional portfolio of advanced Excel analytics projects demonstrating data cleaning, interactive dashboards, KPI development, Power Query / Power Pivot modeling, VBA automation, and automated workbook validation via GitHub Actions CI/CD. Built to showcase production-grade analytical rigor with gated validation, documentation, and reproducible workflows.
 
 [![Excel CI](https://github.com/rajaraogurindapalli-gif/excel-portfolio/actions/workflows/excel-ci.yml/badge.svg)](https://github.com/rajaraogurindapalli-gif/excel-portfolio/actions/workflows/excel-ci.yml)
+
+## Tech Stack
+- **Excel** (with VBA macros)
+- **Power Query** for data transformation and cleaning
+- **Power Pivot** + **DAX** for modeling and KPIs
+- **GitHub Actions** for CI/CD and automated workbook validation
+- **Python** (validation scripts)
+- Structured project documentation and build gates
 
 ## Project 01 — CMAPSS Engine Health — COMPLETE
 
